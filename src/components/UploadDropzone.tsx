@@ -129,15 +129,18 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-blue-400 flex items-center justify-center mb-3">
-                <FileUp className="w-5 h-5" />
+              <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-3 shadow-inner">
+                <FileUp className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-white">
-                Drag and drop your PDF here
+              <p className="text-sm sm:text-base font-semibold text-white text-center">
+                Tap to select PDF from your device
               </p>
-              <p className="text-[11px] text-white/40 mt-1">
-                or click to browse from your computer (up to 25MB)
+              <p className="text-[11px] text-white/50 mt-1 text-center">
+                Supports Files, iCloud, Drive, and scans (up to 25MB)
               </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 active:bg-blue-500 text-white text-xs font-semibold shadow-xs">
+                Browse Files
+              </div>
             </div>
           )}
         </div>
@@ -155,13 +158,13 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
           <div className="text-xs text-white/50 text-center sm:text-left">
             Test with ready-to-use documents:
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <button
               id="btn-load-sample-pdf"
               type="button"
               onClick={onLoadSample}
               disabled={isProcessing}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition shadow-sm cursor-pointer"
+              className="flex-1 sm:flex-initial min-h-[44px] sm:min-h-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 transition shadow-sm cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Sample Invoice
@@ -172,7 +175,7 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
                 type="button"
                 onClick={onLoadFlattenedSample}
                 disabled={isProcessing}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 disabled:opacity-50 transition shadow-sm cursor-pointer"
+                className="flex-1 sm:flex-initial min-h-[44px] sm:min-h-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-1.5 rounded-lg text-xs font-medium text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 active:bg-emerald-800/60 border border-emerald-500/40 disabled:opacity-50 transition shadow-sm cursor-pointer"
                 title="Test automated OCR pipeline on purely image-based PDF"
               >
                 <ScanText className="w-3.5 h-3.5 text-emerald-400" />

@@ -46,16 +46,22 @@ if (typeof window !== 'undefined' || typeof global !== 'undefined') {
 }
 
 /**
- * Configure modern handles & styling for Fabric objects
+ * Configure modern handles & styling for Fabric objects with responsive touch detection
  */
 export function configureDefaultObjectStyles() {
+  const isTouch = typeof window !== 'undefined' && (
+    'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
+  );
+
   fabric.FabricObject.ownDefaults.cornerColor = '#ffffff';
   fabric.FabricObject.ownDefaults.cornerStrokeColor = '#2563eb';
   fabric.FabricObject.ownDefaults.borderColor = '#2563eb';
-  fabric.FabricObject.ownDefaults.cornerSize = 8;
+  fabric.FabricObject.ownDefaults.cornerSize = isTouch ? 14 : 8;
+  fabric.FabricObject.ownDefaults.touchCornerSize = isTouch ? 30 : 20;
   fabric.FabricObject.ownDefaults.cornerStyle = 'rect';
-  fabric.FabricObject.ownDefaults.borderScaleFactor = 2;
+  fabric.FabricObject.ownDefaults.borderScaleFactor = isTouch ? 2.5 : 2;
   fabric.FabricObject.ownDefaults.transparentCorners = false;
+  fabric.FabricObject.ownDefaults.padding = isTouch ? 6 : 2;
 }
 
 /**
@@ -86,6 +92,7 @@ export function createEditorCanvas(
     selection: true,
     stopContextMenu: true,
     fireRightClick: true,
+    allowTouchScrolling: false,
   });
 
   return canvas;

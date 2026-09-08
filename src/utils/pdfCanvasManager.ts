@@ -274,8 +274,19 @@ export function populateNormalizedTextItems(
       objectCaching: false,
     });
 
-    // Force prevent any automatic paragraph reflow or line wrapping during conversion
-    (textbox as any)._splitTextIntoLines = fabric.IText.prototype._splitTextIntoLines;
+    // Force prevent any automatic layout restructuring, auto-alignment, or paragraph reflow during conversion:
+    // Every extracted text node is rendered at its exact native baseline coordinates (x, y).
+    (textbox as any)._wrapLine = function (_text: string, lineIndex: number) {
+      return [this.textLines[lineIndex] || _text];
+    };
+    (textbox as any)._splitTextIntoLines = function (text: string) {
+      return fabric.IText.prototype._splitTextIntoLines.call(this, text);
+    };
+
+    // Maintain original bounding box dimensions without premature line wraps
+    const calcW = textbox.calcTextWidth() || 0;
+    const finalW = Math.max(scaledWidth, calcW);
+    textbox.set('width', finalW);
     textbox.initDimensions();
 
     (textbox as any).extractedId = item.id;

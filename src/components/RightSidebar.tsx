@@ -38,6 +38,7 @@ interface RightSidebarProps {
   onReconstructRegionAI?: () => Promise<void> | void;
   isInpaintingLoading?: boolean;
   isReconstructingAI?: boolean;
+  className?: string;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -54,6 +55,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onReconstructRegionAI,
   isInpaintingLoading = false,
   isReconstructingAI = false,
+  className = '',
 }) => {
   const [inpaintingDone, setInpaintingDone] = useState(false);
 
@@ -100,7 +102,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   return (
     <aside
       id="right-inspector-sidebar"
-      className="hidden xl:flex flex-col w-72 border-l border-white/10 bg-[#161618] shrink-0 h-full select-none z-20 text-[#E0E0E0] overflow-y-auto"
+      className={`flex flex-col w-full border-l border-white/10 bg-[#161618] shrink-0 h-full select-none z-20 text-[#E0E0E0] overflow-y-auto touch-scroll ${className}`}
     >
       {!activeObject ? (
         // Empty state when no object is selected

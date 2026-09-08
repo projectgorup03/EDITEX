@@ -238,8 +238,28 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       }
     };
 
-    const handleMouseDown = () => {
+    let lastTapTime = 0;
+    let lastTapTarget: any = null;
+
+    const handleMouseDown = (opt: any) => {
       onSelectThisPage();
+      const now = Date.now();
+      const target = opt?.target;
+      if (target && (target.type === 'textbox' || target.type === 'i-text')) {
+        if (lastTapTarget === target && (now - lastTapTime) < 380) {
+          // Double tap detected on mobile device: enter editing mode
+          if (typeof target.enterEditing === 'function') {
+            target.enterEditing();
+            if (target.hiddenTextarea && typeof target.hiddenTextarea.focus === 'function') {
+              target.hiddenTextarea.focus();
+            }
+          }
+        }
+        lastTapTime = now;
+        lastTapTarget = target;
+      } else {
+        lastTapTarget = null;
+      }
     };
 
     canvas.on('mouse:down', handleMouseDown);
@@ -593,6 +613,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(zoom);
   const touchStartMidRef = useRef<{ x: number; y: number } | null>(null);
+  const touchStartSinglePosRef = useRef<{ x: number; y: number } | null>(null);
   const isTwoFingerGestureRef = useRef<boolean>(false);
 
   // Pan tool mouse dragging
@@ -745,7 +766,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
   };
 
-  // Multi-Touch Handlers (Pinch-to-zoom & Two-Finger Pan)
+  // Multi-Touch Handlers (Pinch-to-zoom, Two-Finger Pan & 1-Finger Pan tool)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       isTwoFingerGestureRef.current = true;
@@ -756,6 +777,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       touchStartMidRef.current = {
         x: (t1.clientX + t2.clientX) / 2,
         y: (t1.clientY + t2.clientY) / 2,
+      };
+    } else if (e.touches.length === 1 && activeTool === 'pan') {
+      touchStartSinglePosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
       };
     }
   };
@@ -782,12 +808,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         containerRef.current.scrollTop -= deltaY;
         touchStartMidRef.current = currentMid;
       }
+    } else if (e.touches.length === 1 && activeTool === 'pan' && touchStartSinglePosRef.current && containerRef.current) {
+      e.preventDefault();
+      const deltaX = e.touches[0].clientX - touchStartSinglePosRef.current.x;
+      const deltaY = e.touches[0].clientY - touchStartSinglePosRef.current.y;
+      containerRef.current.scrollLeft -= deltaX;
+      containerRef.current.scrollTop -= deltaY;
+      touchStartSinglePosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
     }
   };
 
   const handleTouchEnd = () => {
     touchStartDistRef.current = null;
     touchStartMidRef.current = null;
+    touchStartSinglePosRef.current = null;
     isTwoFingerGestureRef.current = false;
   };
 
@@ -817,9 +854,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     <div
       ref={containerRef}
       id="canvas-viewport-container"
-      className="relative flex-1 w-full h-full overflow-auto bg-[#0F0F11] flex flex-col items-center select-none"
+      className="relative flex-1 w-full h-full overflow-auto bg-[#0F0F11] flex flex-col items-center select-none touch-scroll overscroll-contain"
       style={{
         cursor: activeTool === 'pan' ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+        touchAction: activeTool === 'draw' || activeTool === 'pan' ? 'none' : 'pan-x pan-y',
       }}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
@@ -830,7 +868,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       onMouseUp={handleMouseUp}
     >
       {/* Continuous Vertical Pages Stack */}
-      <div className="w-full max-w-full flex flex-col items-center gap-6 py-3 sm:py-4 px-2 sm:px-4 shrink-0">
+      <div className="w-full max-w-full flex flex-col items-center gap-6 py-3 sm:py-4 px-2 sm:px-4 shrink-0 pb-28 lg:pb-8">
         {pages.map((pageInfo) => (
           <SinglePageCanvas
             key={`page-${pageInfo.pageNumber}`}

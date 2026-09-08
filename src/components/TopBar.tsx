@@ -117,13 +117,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Undo / Redo controls */}
-        <div className="hidden sm:flex items-center bg-[#1C1C1E] rounded-lg p-0.5 border border-white/5 gap-0.5">
+        <div className="flex items-center bg-[#1C1C1E] rounded-lg p-0.5 border border-white/5 gap-0.5 shrink-0">
           <button
             id="btn-undo"
             type="button"
             onClick={onUndo}
             disabled={!canUndo}
-            className="px-2.5 py-1 hover:bg-white/5 rounded text-xs text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition flex items-center gap-1"
+            className="p-1.5 sm:px-2.5 sm:py-1 hover:bg-white/5 rounded text-xs text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition flex items-center gap-1 min-h-[32px] min-w-[32px] justify-center"
             title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-3.5 h-3.5" />
@@ -134,7 +134,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             type="button"
             onClick={onRedo}
             disabled={!canRedo}
-            className="px-2.5 py-1 hover:bg-white/5 rounded text-xs text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition flex items-center gap-1"
+            className="p-1.5 sm:px-2.5 sm:py-1 hover:bg-white/5 rounded text-xs text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition flex items-center gap-1 min-h-[32px] min-w-[32px] justify-center"
             title="Redo (Ctrl+Y)"
           >
             <Redo2 className="w-3.5 h-3.5" />
@@ -281,13 +281,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             id="btn-ai-font-matcher"
             type="button"
             onClick={onOpenAiFontModal}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-950/40 hover:bg-blue-900/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-blue-950/40 hover:bg-blue-900/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer shrink-0 min-h-[32px]"
             title="AI Font Identification & Typeface Intelligence"
           >
             <Sparkles className={`w-3.5 h-3.5 text-blue-400 ${isAiMatchingFonts ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">
               {isAiMatchingFonts ? 'AI Matching...' : aiMatchesCount > 0 ? `AI Fonts (${aiMatchesCount})` : 'AI Fonts'}
             </span>
+            {aiMatchesCount > 0 && (
+              <span className="sm:hidden text-[9px] font-mono bg-blue-500/30 text-blue-200 px-1 rounded-full">
+                {aiMatchesCount}
+              </span>
+            )}
           </button>
         )}
 
@@ -298,13 +303,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             type="button"
             onClick={onRunOcr}
             disabled={isOcrRunning}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition cursor-pointer shrink-0 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition cursor-pointer shrink-0 disabled:opacity-50 min-h-[32px]"
             title="Force-convert flattened or image text into interactive editable textboxes"
           >
             <ScanText className={`w-3.5 h-3.5 text-emerald-400 ${isOcrRunning ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">
               {isOcrRunning ? 'OCR Running...' : ocrCount > 0 ? `OCR (${ocrCount})` : 'Run OCR'}
             </span>
+            {ocrCount > 0 && (
+              <span className="sm:hidden text-[9px] font-mono bg-emerald-500/30 text-emerald-200 px-1 rounded-full">
+                {ocrCount}
+              </span>
+            )}
           </button>
         )}
 

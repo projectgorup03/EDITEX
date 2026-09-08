@@ -23,7 +23,7 @@ export const FooterBar: React.FC<FooterBarProps> = ({
   return (
     <footer
       id="high-density-footer"
-      className="h-8 bg-[#161618] border-t border-white/10 flex items-center justify-between px-3 sm:px-4 shrink-0 select-none text-[#E0E0E0] z-20"
+      className="hidden lg:flex h-8 bg-[#161618] border-t border-white/10 items-center justify-between px-3 sm:px-4 shrink-0 select-none text-[#E0E0E0] z-20"
     >
       {/* Left status items */}
       <div className="flex items-center gap-3 sm:gap-4">
