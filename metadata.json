@@ -1,0 +1,8 @@
+{
+  "name": "Remix PDF Editor",
+  "description": "A modern, responsive PDF editor to parse, edit text and objects on a dynamic canvas, and re-export to PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
