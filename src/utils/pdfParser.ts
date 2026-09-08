@@ -1,86 +1,12 @@
-import '../polyfills';
 import * as pdfjsLib from 'pdfjs-dist';
-import './pdfWorkerSetup';
 import { ExtractedTextItem, PDFDocumentData, PDFPageInfo } from '../types';
 import { runOcrOnPage } from './ocrPipeline';
 import { inpaintRegionOnCanvas } from './inpaintingEngine';
+import { configureLegacyWebKitPdfWorker, getLegacyWebKitDocumentOptions } from './pdfInit';
+import { toStrictUint8Array } from './fileReaderHelper';
 
-/**
- * Normalizes file buffer extraction using standard ArrayBuffer methods safe for mobile Safari:
- *   const arrayBuffer = await new Response(file).arrayBuffer();
- * and falls back gracefully to native methods or FileReader if needed.
- */
-export async function safeExtractArrayBuffer(
-  fileOrBuffer: File | Blob | ArrayBuffer
-): Promise<ArrayBuffer> {
-  if (fileOrBuffer instanceof ArrayBuffer) {
-    return fileOrBuffer;
-  }
-
-  // 1. Primary: Response(file).arrayBuffer() - standard modern mobile Safari WebKit approach
-  if (typeof Response !== 'undefined') {
-    try {
-      const resp = new Response(fileOrBuffer);
-      if (typeof resp.arrayBuffer === 'function') {
-        const buf = await resp.arrayBuffer();
-        if (buf && buf.byteLength > 0) {
-          return buf;
-        }
-      }
-    } catch (err) {
-      console.warn('Response(file).arrayBuffer failed, falling back:', err);
-    }
-  }
-
-  // 2. Secondary: native Blob.arrayBuffer()
-  if (typeof (fileOrBuffer as any).arrayBuffer === 'function') {
-    try {
-      const buf = await (fileOrBuffer as any).arrayBuffer();
-      if (buf && buf.byteLength > 0) {
-        return buf;
-      }
-    } catch (err) {
-      console.warn('file.arrayBuffer failed, falling back to FileReader:', err);
-    }
-  }
-
-  // 3. Tertiary: FileReader.readAsArrayBuffer (universal mobile WebKit compatibility fallback)
-  return new Promise<ArrayBuffer>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result instanceof ArrayBuffer) {
-        resolve(reader.result);
-      } else {
-        reject(new Error('FileReader did not yield an ArrayBuffer'));
-      }
-    };
-    reader.onerror = () =>
-      reject(reader.error || new Error('Failed to read file on mobile device'));
-    reader.onabort = () => reject(new Error('FileReader operation was aborted'));
-    reader.readAsArrayBuffer(fileOrBuffer);
-  });
-}
-
-/**
- * Normalized Mobile File Input Handler safe for mobile Safari WebKit:
- * Converts file buffers using standard ArrayBuffer methods and loads with pdfjsLib.
- */
-export async function handleFile(file: File): Promise<any> {
-  try {
-    const arrayBuffer = await new Response(file).arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      cMapUrl: '/cmaps/',
-      cMapPacked: true,
-      standardFontDataUrl: '/standard_fonts/',
-    });
-    const pdf = await loadingTask.promise;
-    return pdf;
-  } catch (error) {
-    console.error('PDF load error:', error);
-    throw error;
-  }
-}
+// Execute legacy WebKit worker configuration override
+configureLegacyWebKitPdfWorker();
 
 interface RawTextItem {
   str: string;
@@ -241,10 +167,10 @@ export interface ParsePDFOptions {
 }
 
 /**
- * Parses a PDF file from an ArrayBuffer or File
+ * Parses a PDF file strictly via FileReader Uint8Array buffers
  */
 export async function parsePDFDocument(
-  fileOrBuffer: File | ArrayBuffer,
+  fileOrBuffer: File | Blob | ArrayBuffer | Uint8Array,
   onProgressOrOptions?: ((progress: number, message: string) => void) | ParsePDFOptions
 ): Promise<PDFDocumentData> {
   const onProgress =
@@ -260,45 +186,31 @@ export async function parsePDFDocument(
       ? onProgressOrOptions.forceOcr
       : false;
 
-  let arrayBuffer: ArrayBuffer;
   let fileName = 'document.pdf';
   let fileSize = 0;
 
   if (fileOrBuffer instanceof File) {
     fileName = fileOrBuffer.name;
     fileSize = fileOrBuffer.size;
-    arrayBuffer = await safeExtractArrayBuffer(fileOrBuffer);
   } else if (fileOrBuffer instanceof Blob) {
     fileSize = fileOrBuffer.size;
-    arrayBuffer = await safeExtractArrayBuffer(fileOrBuffer);
-  } else {
-    arrayBuffer = fileOrBuffer;
-    fileSize = arrayBuffer.byteLength;
+  } else if (fileOrBuffer instanceof Uint8Array || fileOrBuffer instanceof ArrayBuffer) {
+    fileSize = fileOrBuffer.byteLength;
   }
 
-  onProgress?.(10, 'Loading PDF document...');
+  onProgress?.(5, 'Reading PDF buffer via FileReader...');
 
-  let loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(arrayBuffer),
-    cMapUrl: '/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: '/standard_fonts/',
-  });
+  // Mandatory override: Parse files strictly via FileReader Uint8Array buffers
+  const uint8Array = await toStrictUint8Array(fileOrBuffer);
+  fileSize = fileSize || uint8Array.byteLength;
 
-  let pdfDoc: any;
-  try {
-    pdfDoc = await loadingTask.promise;
-  } catch (err: any) {
-    console.warn('PDF load failed with primary worker, trying CDN fallback worker:', err);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-    loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@' + pdfjsLib.version + '/cmaps/',
-      cMapPacked: true,
-      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@' + pdfjsLib.version + '/standard_fonts/',
-    });
-    pdfDoc = await loadingTask.promise;
-  }
+  onProgress?.(10, 'Loading PDF document via legacy WebKit pipeline...');
+
+  // Load document using legacy WebKit options
+  const documentOptions = getLegacyWebKitDocumentOptions(uint8Array);
+  const loadingTask = pdfjsLib.getDocument(documentOptions);
+
+  const pdfDoc = await loadingTask.promise;
   const numPages = pdfDoc.numPages;
   const pages: PDFPageInfo[] = [];
 
@@ -489,7 +401,7 @@ export async function parsePDFDocument(
     fileSize,
     numPages,
     pages,
-    originalBytes: arrayBuffer,
+    originalBytes: uint8Array.buffer as ArrayBuffer,
     pdfDocProxy: pdfDoc,
   };
 }

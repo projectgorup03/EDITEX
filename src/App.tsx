@@ -8,6 +8,7 @@ import {
   ToolMode,
 } from './types';
 import { parsePDFDocument } from './utils/pdfParser';
+import { readFileAsUint8Array } from './utils/fileReaderHelper';
 import { createSamplePDF, createFlattenedSamplePDF } from './utils/samplePdf';
 import { exportEditedPDF, triggerFileDownload } from './utils/pdfExporter';
 import {
@@ -95,7 +96,7 @@ export default function App() {
 
   // Handle PDF File Parsing
   const processPdfBuffer = async (
-    buffer: ArrayBuffer | File,
+    buffer: ArrayBuffer | File | Uint8Array | Blob,
     defaultName: string = 'document.pdf'
   ) => {
     try {
@@ -253,9 +254,19 @@ export default function App() {
     }
   };
 
-  // Upload Handlers
-  const handleFileSelected = (file: File) => {
-    processPdfBuffer(file, file.name);
+  // Upload Handlers - strictly parses files via FileReader Uint8Array buffers
+  const handleFileSelected = async (file: File) => {
+    try {
+      setIsProcessing(true);
+      setProgressPercent(5);
+      setProgressMessage('Reading file via FileReader Uint8Array buffer...');
+      const uint8Array = await readFileAsUint8Array(file);
+      await processPdfBuffer(uint8Array, file.name);
+    } catch (err: any) {
+      console.error('FileReader failure:', err);
+      setErrorMessage(err?.message || 'Failed to read file via FileReader.');
+      setIsProcessing(false);
+    }
   };
 
   const handleLoadSample = async () => {

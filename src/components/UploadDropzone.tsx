@@ -23,8 +23,6 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [localError, setLocalError] = useState<string | null>(null);
-
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -57,26 +55,17 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       validateAndProcess(file);
-      // Reset input value so the same file can be re-selected on iOS / mobile Safari
-      e.target.value = '';
     }
   };
 
   const validateAndProcess = (file: File) => {
-    setLocalError(null);
-    const isPdf =
-      file.name.toLowerCase().endsWith('.pdf') ||
-      file.type === 'application/pdf' ||
-      file.type === 'application/x-pdf' ||
-      file.type === ''; // Some mobile file pickers don't report MIME type
-
-    if (!isPdf) {
-      setLocalError('Please select a valid PDF document (.pdf)');
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      alert('Please upload a valid PDF document (.pdf)');
       return;
     }
     const maxSizeBytes = 25 * 1024 * 1024; // 25MB
     if (file.size > maxSizeBytes) {
-      setLocalError('File exceeds maximum size limit of 25MB.');
+      alert('File exceeds maximum size limit of 25MB.');
       return;
     }
     onFileSelected(file);
@@ -154,10 +143,10 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({
         </div>
 
         {/* Error message */}
-        {(errorMessage || localError) && (
+        {errorMessage && (
           <div className="mt-4 p-3 bg-red-950/40 border border-red-900 rounded-lg flex items-center gap-2.5 text-xs text-red-300">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage || localError}</span>
+            <span>{errorMessage}</span>
           </div>
         )}
 

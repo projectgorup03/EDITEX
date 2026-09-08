@@ -9,19 +9,6 @@
     <meta property="og:description" content="A modern, responsive PDF editor to parse, edit text and objects on a dynamic canvas, and re-export to PDF." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Safari / Mobile WebKit Polyfill (iOS < 17.4) for Promise.withResolvers used by PDF.js -->
-    <script>
-      if (typeof Promise !== 'undefined' && typeof Promise.withResolvers === 'undefined') {
-        Promise.withResolvers = function () {
-          var resolve, reject;
-          var promise = new Promise(function (res, rej) {
-            resolve = res;
-            reject = rej;
-          });
-          return { promise: promise, resolve: resolve, reject: reject };
-        };
-      }
-    </script>
   </head>
   <body>
     <div id="root"></div>
