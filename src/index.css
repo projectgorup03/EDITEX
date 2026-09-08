@@ -3,10 +3,6 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --sat: env(safe-area-inset-top, 0px);
-    --sar: env(safe-area-inset-right, 0px);
-    --sab: env(safe-area-inset-bottom, 0px);
-    --sal: env(safe-area-inset-left, 0px);
   }
 
   html, body, #root {
@@ -16,20 +12,9 @@
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     background-color: #0F0F11;
     color: #E0E0E0;
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
-
-  /* Prevent iOS Safari 16px auto-zoom on input focus */
-  input, select, textarea {
-    font-size: 16px;
-  }
-  @media (min-width: 640px) {
-    input, select, textarea {
-      font-size: inherit;
-    }
   }
 }
 
@@ -50,10 +35,4 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
-}
-
-/* Touch-optimized momentum scrolling */
-.touch-scroll {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }

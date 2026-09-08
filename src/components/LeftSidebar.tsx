@@ -24,7 +24,6 @@ interface LeftSidebarProps {
   onAddShape: (type: 'rect' | 'circle' | 'highlight') => void;
   onOpenSignatureModal: () => void;
   onUploadImage: (file: File) => void;
-  className?: string;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -37,7 +36,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onAddShape,
   onOpenSignatureModal,
   onUploadImage,
-  className = '',
 }) => {
   const [activeTab, setActiveTab] = useState<'pages' | 'insert'>('pages');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -51,7 +49,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   return (
     <aside
       id="left-sidebar"
-      className={`flex flex-col w-full md:w-56 lg:w-60 border-r border-white/10 bg-[#161618] shrink-0 h-full select-none z-20 text-[#E0E0E0] ${className}`}
+      className="hidden md:flex flex-col w-56 lg:w-60 border-r border-white/10 bg-[#161618] shrink-0 h-full select-none z-20 text-[#E0E0E0]"
     >
       {/* Tab Switcher */}
       <div className="flex border-b border-white/10 shrink-0">
@@ -59,7 +57,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           id="btn-tab-pages"
           type="button"
           onClick={() => setActiveTab('pages')}
-          className={`flex-1 py-3 min-h-[44px] text-[11px] font-bold uppercase tracking-widest transition-colors ${
+          className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
             activeTab === 'pages'
               ? 'text-white border-b-2 border-blue-500 bg-white/5'
               : 'text-white/40 hover:text-white hover:bg-white/5'
@@ -71,7 +69,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           id="btn-tab-insert"
           type="button"
           onClick={() => setActiveTab('insert')}
-          className={`flex-1 py-3 min-h-[44px] text-[11px] font-bold uppercase tracking-widest transition-colors ${
+          className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
             activeTab === 'insert'
               ? 'text-white border-b-2 border-blue-500 bg-white/5'
               : 'text-white/40 hover:text-white hover:bg-white/5'

@@ -35,7 +35,6 @@ import { CanvasEditor } from './components/CanvasEditor';
 import { UploadDropzone } from './components/UploadDropzone';
 import { SignatureModal } from './components/SignatureModal';
 import { AIFontModal } from './components/AIFontModal';
-import { MobileBottomBar } from './components/MobileBottomBar';
 import { Layers, Sliders, X, Sparkles, Check, ScanText } from 'lucide-react';
 
 export default function App() {
@@ -1031,57 +1030,38 @@ export default function App() {
               />
             </div>
 
-            {/* Mobile Bottom Dock (< lg) */}
-            <MobileBottomBar
-              activeTool={activeTool}
-              onToolSelect={handleToolSelect}
-              activeObject={activeObjectProps}
-              onOpenPagesDrawer={() => setMobileDrawer('left')}
-              onOpenFormatDrawer={() => setMobileDrawer('right')}
-              onOpenSignatureModal={() => setIsSignatureModalOpen(true)}
-              onAddText={handleAddText}
-              onAddShape={handleAddShape}
-              onUpdateActiveObject={handleUpdateActiveObject}
-              onDeleteActiveObject={handleDeleteActive}
-              onDuplicateActiveObject={handleDuplicateActive}
-              onBringForward={handleBringForward}
-              onSendBackward={handleSendBackward}
-              onDeselect={() => {
-                if (activeCanvasRef.current) {
-                  activeCanvasRef.current.discardActiveObject();
-                  activeCanvasRef.current.requestRenderAll();
-                }
-                setActiveObjectProps(null);
-              }}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={() => setUndoTrigger((prev) => prev + 1)}
-              onRedo={() => setRedoTrigger((prev) => prev + 1)}
-              currentPage={activePageIndex + 1}
-              totalPages={pdfData.pages.length}
-              onOpenAiFontModal={() => setIsAiModalOpen(true)}
-              onRunOcr={handleRunOcrOnActivePage}
-              isOcrRunning={isOcrRunning}
-            />
+            {/* Mobile Drawer Floating Buttons (< lg) */}
+            <div className="lg:hidden absolute bottom-3 right-3 z-30 flex items-center gap-2">
+              <button
+                id="btn-mobile-open-pages"
+                type="button"
+                onClick={() => setMobileDrawer(mobileDrawer === 'left' ? 'none' : 'left')}
+                className="px-2.5 py-1.5 bg-[#161618] border border-white/10 text-white rounded text-xs font-semibold shadow-lg flex items-center gap-1.5 active:bg-white/10"
+              >
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                Pages / Insert
+              </button>
+              {activeObjectProps && (
+                <button
+                  id="btn-mobile-open-props"
+                  type="button"
+                  onClick={() => setMobileDrawer(mobileDrawer === 'right' ? 'none' : 'right')}
+                  className="px-2.5 py-1.5 bg-blue-600 text-white rounded text-xs font-semibold shadow-lg flex items-center gap-1.5 active:bg-blue-700"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  Format
+                </button>
+              )}
+            </div>
 
             {/* Mobile Drawer Overlay */}
             {mobileDrawer !== 'none' && (
               <div
-                className={`lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs flex ${
-                  mobileDrawer === 'left' ? 'justify-start' : 'justify-end'
-                }`}
+                className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs flex justify-end"
                 onClick={() => setMobileDrawer('none')}
               >
                 <div
-                  className={`w-80 max-w-[85vw] h-full bg-[#161618] flex flex-col shadow-2xl relative ${
-                    mobileDrawer === 'left'
-                      ? 'border-r border-white/10 animate-in slide-in-from-left duration-200'
-                      : 'border-l border-white/10 animate-in slide-in-from-right duration-200'
-                  }`}
-                  style={{
-                    paddingTop: 'env(safe-area-inset-top, 0px)',
-                    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-                  }}
+                  className="w-80 max-w-[85vw] h-full bg-[#161618] border-l border-white/10 flex flex-col shadow-2xl relative"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
@@ -1089,14 +1069,13 @@ export default function App() {
                       {mobileDrawer === 'left' ? 'Document Pages & Tools' : 'Object Properties'}
                     </span>
                     <button
-                      type="button"
                       onClick={() => setMobileDrawer('none')}
-                      className="p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/5 active:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
+                      className="p-1 text-white/50 hover:text-white rounded hover:bg-white/5"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto touch-scroll">
+                  <div className="flex-1 overflow-y-auto">
                     {mobileDrawer === 'left' ? (
                       <LeftSidebar
                         pages={pdfData.pages}
