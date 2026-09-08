@@ -1,3 +1,4 @@
+if(typeof Promise!=='undefined'&&typeof Promise.withResolvers==='undefined'){Promise.withResolvers=function(){var res,rej;var prom=new Promise(function(r,j){res=r;rej=j;});return{promise:prom,resolve:res,reject:rej};};}
 /**
  * @licstart The following is the entire license notice for the
  * JavaScript code in this page
