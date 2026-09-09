@@ -78,6 +78,21 @@ export interface AIFontMatch {
   substitutes: string[];
 }
 
+export interface ExtractedNonTextAsset {
+  id: string;
+  dataUrl: string;
+  x: number;          // unscaled point X
+  y: number;          // unscaled point Y
+  width: number;      // unscaled point width
+  height: number;     // unscaled point height
+  unscaledX: number;  // unscaled point X
+  unscaledY: number;  // unscaled point Y
+  unscaledWidth: number;
+  unscaledHeight: number;
+  assetType: 'vector' | 'stamp' | 'shape' | 'figure' | 'image';
+  label?: string;
+}
+
 export interface PDFPageInfo {
   pageNumber: number; // 1-indexed
   width: number;      // CSS canvas pixel width
@@ -88,6 +103,7 @@ export interface PDFPageInfo {
   unscaledHeight?: number;
   bgDataUrl: string;  // High-DPI rendered background image
   textItems: ExtractedTextItem[];
+  nonTextAssets?: ExtractedNonTextAsset[]; // Discrete editable image objects (Fabric.Image)
   canvasJson?: string; // Serialized Fabric canvas state for this page
   thumbnailUrl?: string; // Thumbnail preview image
   pageProxy?: any;     // Live pdfjs page proxy for dynamic re-rendering

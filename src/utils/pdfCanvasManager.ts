@@ -1,6 +1,7 @@
 import * as fabric from 'fabric';
 import * as pdfjsLib from 'pdfjs-dist';
-import { ExtractedTextItem, PDFPageInfo } from '../types';
+import { ExtractedTextItem, ExtractedNonTextAsset, PDFPageInfo } from '../types';
+import { applyCustomActionHandles } from './fabricHelpers';
 
 export interface DynamicScaleResult {
   scale: number;
@@ -302,3 +303,76 @@ export function populateNormalizedTextItems(
 
   canvas.requestRenderAll();
 }
+
+/**
+ * 4. Populates all non-text assets (vector graphics, stamps, shapes, and figures)
+ * as discrete, editable image objects (Fabric.Image / fabric.FabricImage) on the canvas.
+ * Each asset has full interactive controls, eventing, and custom action handles.
+ */
+export async function populateDiscreteNonTextAssets(
+  canvas: fabric.Canvas,
+  assets: ExtractedNonTextAsset[],
+  scale: number
+): Promise<void> {
+  if (!isCanvasAlive(canvas) || !assets || assets.length === 0) return;
+
+  // Remove existing non-text assets before re-populating to prevent duplicates
+  const existingAssets = canvas.getObjects().filter((obj) => (obj as any).isNonTextAsset);
+  existingAssets.forEach((obj) => {
+    if (isCanvasAlive(canvas)) canvas.remove(obj);
+  });
+
+  for (const asset of assets) {
+    if (!isCanvasAlive(canvas)) return;
+
+    try {
+      const fabricImg = await fabric.FabricImage.fromURL(asset.dataUrl, {
+        crossOrigin: 'anonymous',
+      });
+      if (!isCanvasAlive(canvas)) return;
+
+      const scaledLeft = asset.unscaledX * scale;
+      const scaledTop = asset.unscaledY * scale;
+      const scaledWidth = asset.unscaledWidth * scale;
+      const scaledHeight = asset.unscaledHeight * scale;
+
+      fabricImg.set({
+        left: scaledLeft,
+        top: scaledTop,
+        originX: 'left',
+        originY: 'top',
+        scaleX: scaledWidth / (fabricImg.width || 1),
+        scaleY: scaledHeight / (fabricImg.height || 1),
+        selectable: true, // Discrete, editable image object!
+        evented: true,
+        hasControls: true,
+        hasBorders: true,
+        borderColor: '#2563eb',
+        cornerColor: '#2563eb',
+        cornerStrokeColor: '#ffffff',
+        cornerSize: 9,
+        transparentCorners: false,
+        lockUniScaling: false,
+        hoverCursor: 'move',
+      });
+
+      (fabricImg as any).isNonTextAsset = true;
+      (fabricImg as any).assetId = asset.id;
+      (fabricImg as any).assetType = asset.assetType;
+      (fabricImg as any).unscaledX = asset.unscaledX;
+      (fabricImg as any).unscaledY = asset.unscaledY;
+      (fabricImg as any).unscaledWidth = asset.unscaledWidth;
+      (fabricImg as any).unscaledHeight = asset.unscaledHeight;
+
+      // Apply custom action handles: drag-to-move handle (top-left) & single-click delete (top-right)
+      applyCustomActionHandles(fabricImg);
+
+      canvas.add(fabricImg);
+    } catch (err) {
+      console.warn('Failed to add discrete non-text asset to canvas:', err);
+    }
+  }
+
+  canvas.requestRenderAll();
+}
+

@@ -6,6 +6,7 @@ import {
   ZoomOut,
   Download,
   FilePlus,
+  FolderOpen,
   ChevronLeft,
   ChevronRight,
   MousePointer,
@@ -14,7 +15,6 @@ import {
   Circle,
   Highlighter,
   PenTool,
-  Hand,
   Sun,
   Moon,
   ChevronDown,
@@ -97,19 +97,20 @@ export const TopBar: React.FC<TopBarProps> = ({
       id="app-topbar"
       className="h-14 border-b border-white/10 bg-[#161618] px-3 sm:px-4 flex items-center justify-between gap-2 select-none z-30 shrink-0 text-[#E0E0E0]"
     >
-      {/* Left Section: Logo & Document Title */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Left Section: Edit Another PDF & Document Title */}
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <button
-          id="btn-new-document"
+          id="btn-edit-another-pdf"
           type="button"
           onClick={onNewDocument}
-          className="bg-blue-600 hover:bg-blue-500 p-1.5 rounded-md text-white transition-colors shrink-0 shadow-xs"
-          title="Open another PDF document"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer shrink-0 border border-blue-400/30"
+          title="Reset document and re-open file uploader to edit another PDF"
         >
-          <FilePlus className="w-4 h-4" />
+          <FolderOpen className="w-3.5 h-3.5 text-blue-100" />
+          <span className="whitespace-nowrap">Edit Another PDF</span>
         </button>
 
-        <div className="flex flex-col min-w-0 max-w-[150px] sm:max-w-[200px] md:max-w-xs">
+        <div className="flex flex-col min-w-0 max-w-[120px] sm:max-w-[180px] md:max-w-xs">
           <input
             id="input-doc-name"
             type="text"
@@ -119,7 +120,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             title="Click to rename document"
           />
           <span className="text-[9px] text-white/40 uppercase tracking-widest px-1 hidden sm:inline-block">
-            {totalPages} {totalPages === 1 ? 'Page' : 'Pages'} • Vector Mode
+            {totalPages} {totalPages === 1 ? 'Page' : 'Pages'} • Vector Edit Mode
           </span>
         </div>
 
@@ -159,7 +160,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           { id: 'circle' as ToolMode, icon: Circle, label: 'Circle' },
           { id: 'highlight' as ToolMode, icon: Highlighter, label: 'Highlight' },
           { id: 'draw' as ToolMode, icon: PenTool, label: 'Pen' },
-          { id: 'pan' as ToolMode, icon: Hand, label: 'Pan' },
         ].map((tool) => {
           const Icon = tool.icon;
           const isActive = activeTool === tool.id;

@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  Hand,
-  MousePointer,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -36,7 +34,6 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   myPlatform,
   onOpenSyncModal,
 }) => {
-  const isPanActive = activeTool === 'pan';
   const isConnected = syncStatus === 'connected';
 
   const handleZoomIn = () => {
@@ -81,23 +78,6 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
 
       {/* Touch Action Bar */}
       <div className="flex items-center gap-1 p-1 bg-[#18181B]/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md">
-        {/* Toggle Hand / Pan vs Select / Edit */}
-        <button
-          type="button"
-          onClick={() => onToolChange(isPanActive ? 'select' : 'pan')}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${
-            isPanActive
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white'
-          }`}
-          title={isPanActive ? 'Pan Mode Active (Drag to scroll viewport)' : 'Switch to 1-Finger Pan'}
-        >
-          {isPanActive ? <Hand className="w-4 h-4" /> : <MousePointer className="w-4 h-4" />}
-          <span className="text-[11px] font-semibold">{isPanActive ? 'Panning' : 'Select'}</span>
-        </button>
-
-        <div className="w-px h-6 bg-white/15 my-auto" />
-
         {/* Zoom Controls */}
         <button
           type="button"

@@ -8,12 +8,14 @@ import {
 } from '../types';
 import {
   createEditorCanvas,
+  applyCustomActionHandles,
 } from '../utils/fabricHelpers';
 import {
   calculateDynamicPageScale,
   renderHighDpiPageBackground,
   syncFabricCanvasToPage,
   populateNormalizedTextItems,
+  populateDiscreteNonTextAssets,
   isCanvasAlive,
   safeDisposeCanvas,
 } from '../utils/pdfCanvasManager';
@@ -71,6 +73,7 @@ interface SinglePageProps {
   onOneFingerPanStart?: (e: TouchEvent) => void;
   onOneFingerPanMove?: (e: TouchEvent) => void;
   onOneFingerPanEnd?: () => void;
+  onPanStartMouse?: (clientX: number, clientY: number) => void;
 }
 
 const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
@@ -97,6 +100,7 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
   onOneFingerPanStart,
   onOneFingerPanMove,
   onOneFingerPanEnd,
+  onPanStartMouse,
 }) => {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -178,6 +182,16 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       viewportWidth,
       viewportHeight
     );
+    if (activeTool === 'pan') {
+      canvas.selection = false;
+      canvas.skipTargetFind = true;
+      canvas.defaultCursor = 'grab';
+      canvas.hoverCursor = 'grab';
+    } else if (activeTool === 'draw') {
+      canvas.selection = false;
+      canvas.skipTargetFind = true;
+      canvas.isDrawingMode = true;
+    }
     fabricCanvasRef.current = canvas;
     currentScaleRef.current = scale;
     onCanvasReady(pageInfo.pageNumber, canvas);
@@ -204,6 +218,13 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
           await syncFabricCanvasToPage(canvas, viewportWidth, viewportHeight, bgUrl);
 
           if (isCancelled || !isCanvasAlive(canvas)) return;
+          // Force all non-text assets (vector graphics, stamps, shapes, and figures)
+          // to render as discrete, editable image objects (Fabric.Image)
+          if (pageInfo.nonTextAssets && pageInfo.nonTextAssets.length > 0) {
+            await populateDiscreteNonTextAssets(canvas, pageInfo.nonTextAssets, scale);
+          }
+
+          if (isCancelled || !isCanvasAlive(canvas)) return;
           // Rule 3: Interactive Element Coordinate Normalization
           if (pageInfo.textItems && pageInfo.textItems.length > 0) {
             populateNormalizedTextItems(canvas, pageInfo.textItems, scale);
@@ -211,6 +232,13 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
         }
 
         if (isCancelled || !isCanvasAlive(canvas)) return;
+
+        // Ensure all non-background interactive objects have custom action handles
+        canvas.getObjects().forEach((obj) => {
+          if (!(obj as any).isPdfBackground) {
+            applyCustomActionHandles(obj);
+          }
+        });
 
         // If AI font matches are already available, apply them right away
         if (aiFontMatches && aiFontMatches.length > 0) {
@@ -223,6 +251,13 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
 
         // Initial history push
         onPushHistory(pageInfo.pageNumber, JSON.stringify(canvas.toJSON()));
+        if (activeTool === 'pan') {
+          canvas.selection = false;
+          canvas.skipTargetFind = true;
+          canvas.discardActiveObject();
+          canvas.defaultCursor = 'grab';
+          canvas.hoverCursor = 'grab';
+        }
         canvas.requestRenderAll();
       } catch (err) {
         console.warn('Error during page canvas initialization:', err);
@@ -285,13 +320,25 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
     let handleUpperTouchStart: ((e: TouchEvent) => void) | null = null;
     let handleUpperTouchMove: ((e: TouchEvent) => void) | null = null;
     let handleUpperTouchEnd: ((e: TouchEvent) => void) | null = null;
+    let handleUpperMouseDown: ((e: MouseEvent) => void) | null = null;
 
     if (upperEl) {
+      let isTouchPanning = false;
+
       handleUpperTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 2) {
           onTwoFingerStart?.(e);
-        } else if (e.touches.length === 1 && activeTool === 'pan') {
-          onOneFingerPanStart?.(e);
+        } else if (e.touches.length === 1) {
+          if (activeTool === 'pan') {
+            isTouchPanning = true;
+            onOneFingerPanStart?.(e);
+          } else if (activeTool !== 'draw') {
+            const target = canvas.findTarget(e as any);
+            if (!target || (target as any).isPdfBackground) {
+              isTouchPanning = true;
+              onOneFingerPanStart?.(e);
+            }
+          }
         }
       };
 
@@ -299,9 +346,11 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
         if (e.touches.length === 2) {
           if (e.cancelable) e.preventDefault();
           onTwoFingerMove?.(e);
-        } else if (e.touches.length === 1 && activeTool === 'pan') {
-          if (e.cancelable) e.preventDefault();
-          onOneFingerPanMove?.(e);
+        } else if (e.touches.length === 1) {
+          if (activeTool === 'pan' || isTouchPanning) {
+            if (e.cancelable) e.preventDefault();
+            onOneFingerPanMove?.(e);
+          }
         }
       };
 
@@ -310,6 +359,7 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
           onTwoFingerEnd?.();
         }
         if (e.touches.length === 0) {
+          isTouchPanning = false;
           onOneFingerPanEnd?.();
         }
       };
@@ -318,6 +368,20 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       upperEl.addEventListener('touchmove', handleUpperTouchMove, { passive: false });
       upperEl.addEventListener('touchend', handleUpperTouchEnd);
       upperEl.addEventListener('touchcancel', handleUpperTouchEnd);
+
+      handleUpperMouseDown = (e: MouseEvent) => {
+        if (activeTool === 'pan' || e.button === 1) {
+          e.preventDefault();
+          onPanStartMouse?.(e.clientX, e.clientY);
+        } else if (e.button === 0 && activeTool !== 'draw') {
+          // If clicking on background (not on an active interactive target), enable viewport panning
+          const target = canvas.findTarget(e);
+          if (!target || (target as any).isPdfBackground) {
+            onPanStartMouse?.(e.clientX, e.clientY);
+          }
+        }
+      };
+      upperEl.addEventListener('mousedown', handleUpperMouseDown);
     }
 
     return () => {
@@ -328,6 +392,9 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
         upperEl.removeEventListener('touchmove', handleUpperTouchMove!);
         upperEl.removeEventListener('touchend', handleUpperTouchEnd!);
         upperEl.removeEventListener('touchcancel', handleUpperTouchEnd!);
+      }
+      if (upperEl && handleUpperMouseDown) {
+        upperEl.removeEventListener('mousedown', handleUpperMouseDown);
       }
       if (onCanvasDisposed) onCanvasDisposed(pageInfo.pageNumber);
       const c = fabricCanvasRef.current;
@@ -418,6 +485,17 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
               tb.fontSize = (tb.fontSize || 12) * ratio;
               tb.width = (tb.width || 50) * ratio;
             }
+          } else if ((obj as any).isNonTextAsset) {
+            // Scaled discrete non-text asset (Fabric.Image)
+            const asset = obj as fabric.FabricImage;
+            const unscaledX = (asset as any).unscaledX ?? 0;
+            const unscaledY = (asset as any).unscaledY ?? 0;
+            const unscaledW = (asset as any).unscaledWidth ?? asset.width ?? 100;
+            const unscaledH = (asset as any).unscaledHeight ?? asset.height ?? 100;
+            asset.left = unscaledX * scale;
+            asset.top = unscaledY * scale;
+            asset.scaleX = (unscaledW * scale) / (asset.width || 1);
+            asset.scaleY = (unscaledH * scale) / (asset.height || 1);
           } else {
             obj.left = (obj.left || 0) * ratio;
             obj.top = (obj.top || 0) * ratio;
@@ -457,16 +535,29 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       brush.color = '#2563eb';
       canvas.freeDrawingBrush = brush;
       canvas.selection = false;
+      canvas.skipTargetFind = true;
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    } else if (activeTool === 'pan') {
+      canvas.isDrawingMode = false;
+      // Force default canvas interaction mode to pan-only
+      // Disable default object drag-selection boxes & object targeting, keep viewport panning active
+      canvas.selection = false;
+      canvas.skipTargetFind = true;
+      canvas.discardActiveObject();
+      canvas.defaultCursor = 'grab';
+      canvas.hoverCursor = 'grab';
+      canvas.requestRenderAll();
+      onObjectSelected(null);
     } else {
       canvas.isDrawingMode = false;
-      canvas.selection = activeTool === 'select';
-      if (activeTool === 'pan') {
-        canvas.defaultCursor = 'grab';
-        canvas.hoverCursor = 'grab';
-      } else {
-        canvas.defaultCursor = 'default';
-        canvas.hoverCursor = 'move';
-      }
+      // User request: Disable Fabric.js default drag-selection boxes (selection: false)
+      // while keeping background viewport panning enabled
+      canvas.selection = false;
+      canvas.skipTargetFind = false;
+      canvas.defaultCursor = 'default';
+      canvas.hoverCursor = 'move';
+      canvas.requestRenderAll();
     }
   }, [activeTool]);
 
@@ -902,11 +993,45 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     isPanningRef.current = false;
   }, []);
 
-  // Mouse Pan Handlers
+  const [isPanningState, setIsPanningState] = useState(false);
+
+  // Mouse Pan Handlers & Window Drag Listeners
+  const startMousePanning = useCallback((clientX: number, clientY: number) => {
+    isPanningRef.current = true;
+    lastMousePosRef.current = { x: clientX, y: clientY };
+    setIsPanningState(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isPanningState) return;
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (isPanningRef.current && containerRef.current) {
+        const dx = e.clientX - lastMousePosRef.current.x;
+        const dy = e.clientY - lastMousePosRef.current.y;
+        containerRef.current.scrollLeft -= dx;
+        containerRef.current.scrollTop -= dy;
+        lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      isPanningRef.current = false;
+      setIsPanningState(false);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [isPanningState]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (activeTool === 'pan' || e.button === 1 || (e.target === containerRef.current && activeTool === 'select')) {
-      isPanningRef.current = true;
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+      startMousePanning(e.clientX, e.clientY);
     }
   };
 
@@ -922,6 +1047,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const handleMouseUp = () => {
     isPanningRef.current = false;
+    setIsPanningState(false);
   };
 
   return (
@@ -930,7 +1056,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       id="canvas-viewport-container"
       className="relative flex-1 w-full h-full overflow-auto bg-[#0F0F11] flex flex-col items-center select-none"
       style={{
-        cursor: activeTool === 'pan' ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+        cursor: activeTool === 'pan' ? (isPanningState ? 'grabbing' : 'grab') : 'default',
         touchAction: activeTool === 'pan' ? 'none' : 'pan-x pan-y',
         WebkitOverflowScrolling: 'touch',
       }}
@@ -994,6 +1120,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             onOneFingerPanStart={(e) => handleOneFingerPanStart(e.touches)}
             onOneFingerPanMove={(e) => handleOneFingerPanMove(e.touches)}
             onOneFingerPanEnd={handleOneFingerPanEnd}
+            onPanStartMouse={(clientX, clientY) => startMousePanning(clientX, clientY)}
           />
         ))}
       </div>

@@ -159,6 +159,7 @@ export default function App() {
       canvasesMapRef.current.clear();
       setPdfData(result);
       setActivePageIndex(0);
+      setActiveTool('select');
 
       // Auto fit zoom to 'Fit to Page' immediately so the user can see the entire page and all content
       if (result.pages.length > 0) {
@@ -338,9 +339,6 @@ export default function App() {
   };
 
   const handleNewDocument = () => {
-    if (pdfData && !confirm('Open another PDF document? Any unsaved edits will be cleared.')) {
-      return;
-    }
     canvasesMapRef.current.clear();
     activeCanvasRef.current = null;
     setPdfData(null);
@@ -348,6 +346,9 @@ export default function App() {
     setActiveObjectProps(null);
     setAiFontMatches([]);
     setFontToast(null);
+    setActiveTool('select');
+    setErrorMessage(null);
+    setIsProcessing(false);
   };
 
   // Canvas Ready Callback for continuous multi-page rendering

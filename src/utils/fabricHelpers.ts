@@ -46,6 +46,235 @@ if (typeof window !== 'undefined' || typeof global !== 'undefined') {
 }
 
 /**
+ * Custom render function for the Drag-to-Move handle.
+ * Draws an interactive circular badge with 4-directional move arrows.
+ */
+export function renderMoveControl(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  _styleOverride: any,
+  fabricObject: fabric.FabricObject
+) {
+  const radius = 11;
+
+  ctx.save();
+  ctx.translate(left, top);
+
+  // Compensate for object rotation so the control stays upright
+  const angle = fabricObject.getTotalAngle ? fabricObject.getTotalAngle() : (fabricObject.angle || 0);
+  ctx.rotate((-angle * Math.PI) / 180);
+
+  // Soft drop shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+
+  // Circular background badge
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
+  ctx.fillStyle = '#2563eb'; // Royal Blue (tailwind blue-600)
+  ctx.fill();
+
+  // Clean white border ring
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // 4-directional Move Arrows
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const arm = 5;
+  // Cross arms
+  ctx.beginPath();
+  ctx.moveTo(0, -arm);
+  ctx.lineTo(0, arm);
+  ctx.moveTo(-arm, 0);
+  ctx.lineTo(arm, 0);
+  ctx.stroke();
+
+  // Top arrow tip
+  ctx.beginPath();
+  ctx.moveTo(-2, -arm + 2);
+  ctx.lineTo(0, -arm);
+  ctx.lineTo(2, -arm + 2);
+  ctx.stroke();
+
+  // Bottom arrow tip
+  ctx.beginPath();
+  ctx.moveTo(-2, arm - 2);
+  ctx.lineTo(0, arm);
+  ctx.lineTo(2, arm - 2);
+  ctx.stroke();
+
+  // Left arrow tip
+  ctx.beginPath();
+  ctx.moveTo(-arm + 2, -2);
+  ctx.lineTo(-arm, 0);
+  ctx.lineTo(-arm + 2, 2);
+  ctx.stroke();
+
+  // Right arrow tip
+  ctx.beginPath();
+  ctx.moveTo(arm - 2, -2);
+  ctx.lineTo(arm, 0);
+  ctx.lineTo(arm - 2, 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Custom render function for the Single-Click Delete button.
+ * Draws an interactive circular badge with a white trash-can icon.
+ */
+export function renderDeleteControl(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  _styleOverride: any,
+  fabricObject: fabric.FabricObject
+) {
+  const radius = 11;
+
+  ctx.save();
+  ctx.translate(left, top);
+
+  // Compensate for object rotation so the control stays upright
+  const angle = fabricObject.getTotalAngle ? fabricObject.getTotalAngle() : (fabricObject.angle || 0);
+  ctx.rotate((-angle * Math.PI) / 180);
+
+  // Soft drop shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+
+  // Circular background badge
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
+  ctx.fillStyle = '#ef4444'; // Crimson Red (tailwind red-500)
+  ctx.fill();
+
+  // Clean white border ring
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Crisp Trash Can icon
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Trash lid
+  ctx.beginPath();
+  ctx.moveTo(-4.2, -2.5);
+  ctx.lineTo(4.2, -2.5);
+  ctx.stroke();
+
+  // Trash lid handle
+  ctx.beginPath();
+  ctx.moveTo(-1.8, -2.5);
+  ctx.lineTo(-1.8, -4);
+  ctx.lineTo(1.8, -4);
+  ctx.lineTo(1.8, -2.5);
+  ctx.stroke();
+
+  // Trash can body
+  ctx.beginPath();
+  ctx.moveTo(-3.2, -1.8);
+  ctx.lineTo(-2.5, 4.5);
+  ctx.lineTo(2.5, 4.5);
+  ctx.lineTo(3.2, -1.8);
+  ctx.stroke();
+
+  // Trash can interior lines
+  ctx.beginPath();
+  ctx.moveTo(-0.9, 0);
+  ctx.lineTo(-0.7, 3.2);
+  ctx.moveTo(0.9, 0);
+  ctx.lineTo(0.7, 3.2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Creates the two custom action handles:
+ * 1. Drag-to-move handle for position adjustments
+ * 2. Single-click delete button to remove the object layer
+ */
+export function createCustomActionControls(): {
+  moveControl: fabric.Control;
+  deleteControl: fabric.Control;
+} {
+  const moveControl = new fabric.Control({
+    x: -0.5,
+    y: -0.5,
+    offsetX: -16,
+    offsetY: -16,
+    sizeX: 24,
+    sizeY: 24,
+    touchSizeX: 34,
+    touchSizeY: 34,
+    cursorStyle: 'move',
+    actionHandler: fabric.controlsUtils.dragHandler,
+    actionName: 'drag',
+    render: renderMoveControl,
+  });
+
+  const deleteControl = new fabric.Control({
+    x: 0.5,
+    y: -0.5,
+    offsetX: 16,
+    offsetY: -16,
+    sizeX: 24,
+    sizeY: 24,
+    touchSizeX: 34,
+    touchSizeY: 34,
+    cursorStyle: 'pointer',
+    mouseUpHandler: (_eventData: any, transform: any) => {
+      const target = transform?.target || (transform as any)?._target;
+      if (target && target.canvas) {
+        const canvas = target.canvas;
+        canvas.remove(target);
+        canvas.discardActiveObject();
+        canvas.requestRenderAll();
+        return true;
+      }
+      return false;
+    },
+    actionHandler: () => false,
+    actionName: 'delete',
+    render: renderDeleteControl,
+  });
+
+  return { moveControl, deleteControl };
+}
+
+/**
+ * Applies custom action handles (drag-to-move and single-click delete) to an object
+ */
+export function applyCustomActionHandles(object: fabric.FabricObject) {
+  if (!object || (object as any).isPdfBackground) return;
+  const { moveControl, deleteControl } = createCustomActionControls();
+  object.controls = {
+    ...object.controls,
+    moveControl,
+    deleteControl,
+  };
+}
+
+/**
  * Configure modern handles & styling for Fabric objects
  */
 export function configureDefaultObjectStyles() {
@@ -56,6 +285,37 @@ export function configureDefaultObjectStyles() {
   fabric.FabricObject.ownDefaults.cornerStyle = 'rect';
   fabric.FabricObject.ownDefaults.borderScaleFactor = 2;
   fabric.FabricObject.ownDefaults.transparentCorners = false;
+
+  // Patch static createControls on Textbox and FabricObject so all newly created textboxes get handles
+  if (!(fabric.Textbox as any).__hasCustomActionHandles) {
+    const origTextboxCreateControls = fabric.Textbox.createControls;
+    fabric.Textbox.createControls = function () {
+      const res = origTextboxCreateControls.call(this);
+      const { moveControl, deleteControl } = createCustomActionControls();
+      res.controls = {
+        ...res.controls,
+        moveControl,
+        deleteControl,
+      };
+      return res;
+    };
+    (fabric.Textbox as any).__hasCustomActionHandles = true;
+  }
+
+  if (!(fabric.FabricObject as any).__hasCustomActionHandles) {
+    const origObjectCreateControls = fabric.FabricObject.createControls;
+    fabric.FabricObject.createControls = function () {
+      const res = origObjectCreateControls.call(this);
+      const { moveControl, deleteControl } = createCustomActionControls();
+      res.controls = {
+        ...res.controls,
+        moveControl,
+        deleteControl,
+      };
+      return res;
+    };
+    (fabric.FabricObject as any).__hasCustomActionHandles = true;
+  }
 }
 
 /**
@@ -83,9 +343,15 @@ export function createEditorCanvas(
     width,
     height,
     preserveObjectStacking: true,
-    selection: true,
+    selection: false, // User requested: Disable Fabric.js default drag-selection boxes (marquee selection)
     stopContextMenu: true,
     fireRightClick: true,
+  });
+
+  canvas.on('object:added', (e: any) => {
+    if (e.target && !e.target.isPdfBackground) {
+      applyCustomActionHandles(e.target);
+    }
   });
 
   return canvas;
