@@ -108,6 +108,34 @@ export interface PDFDocumentData {
 
 export type ToolMode = 'select' | 'text' | 'rect' | 'circle' | 'highlight' | 'draw' | 'pan';
 
+export type ClientPlatform = 'iOS' | 'Android' | 'Web' | 'Desktop';
+
+export interface SyncPeer {
+  id: string;
+  platform: ClientPlatform;
+  deviceName: string;
+  color: string;
+  lastSeen?: number;
+}
+
+export interface CanvasObjectSyncPayload {
+  id: string;
+  pageNumber: number;
+  data: any;
+  updatedBy: string;
+  platform: ClientPlatform;
+  timestamp: number;
+}
+
+export interface RealtimeSyncState {
+  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  roomId: string | null;
+  peers: SyncPeer[];
+  myPlatform: ClientPlatform;
+  myClientId: string;
+  lastSyncTime: number | null;
+}
+
 export interface ActiveObjectProperties {
   type: string;
   pageNumber?: number;

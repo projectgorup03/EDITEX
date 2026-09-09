@@ -1,10 +1,12 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+import { setupRealtimeServer, getRoomSummary, getOrCreateRoom } from './server/realtimeServer';
 
 dotenv.config();
 
@@ -12,6 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const server = http.createServer(app);
 const PORT = 3000;
 
 app.use(express.json({ limit: '25mb' }));
@@ -553,7 +556,33 @@ Return structured JSON matching:
   }
 });
 
+// Real-Time Cross-Platform Synchronization REST Endpoints (for mobile fallback / polling)
+app.get('/api/sync/rooms/:roomId', (req, res) => {
+  const { roomId } = req.params;
+  const summary = getRoomSummary(roomId);
+  if (!summary) {
+    const freshRoom = getOrCreateRoom(roomId);
+    return res.json({ success: true, room: getRoomSummary(freshRoom.id) });
+  }
+  return res.json({ success: true, room: summary });
+});
+
+app.post('/api/sync/rooms/:roomId/presence', (req, res) => {
+  const { roomId } = req.params;
+  const { platform = 'Web', deviceName = 'Client Device' } = req.body;
+  const room = getOrCreateRoom(roomId);
+  return res.json({
+    success: true,
+    roomId: room.id,
+    activePeersCount: room.clients.size,
+    serverTimestamp: Date.now(),
+  });
+});
+
 async function startServer() {
+  // Attach WebSocket Server for cross-platform iOS, Android, and Web real-time sync
+  setupRealtimeServer(server);
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -568,8 +597,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`PDF Editor server running at http://0.0.0.0:${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`PDF Editor real-time server running at http://0.0.0.0:${PORT}`);
   });
 }
 

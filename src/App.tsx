@@ -36,6 +36,10 @@ import { CanvasEditor } from './components/CanvasEditor';
 import { UploadDropzone } from './components/UploadDropzone';
 import { SignatureModal } from './components/SignatureModal';
 import { AIFontModal } from './components/AIFontModal';
+import { RealtimeSyncModal } from './components/RealtimeSyncModal';
+import { MobileTouchControls } from './components/MobileTouchControls';
+import { realtimeSync, ConnectionStatus } from './utils/realtimeSync';
+import { ClientPlatform, SyncPeer } from './types';
 import { Layers, Sliders, X, Sparkles, Check, ScanText } from 'lucide-react';
 
 export default function App() {
@@ -45,6 +49,13 @@ export default function App() {
   const [zoom, setZoom] = useState<number>(1.0);
   const [activeTool, setActiveTool] = useState<ToolMode>('select');
   const [scrollToPageNumber, setScrollToPageNumber] = useState<number | null>(null);
+
+  // Cross-Platform Cloud Realtime Sync State
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<ConnectionStatus>('disconnected');
+  const [syncPeers, setSyncPeers] = useState<SyncPeer[]>([]);
+  const [myPlatform, setMyPlatform] = useState<ClientPlatform>(realtimeSync.getPlatform());
+  const [syncRoomId, setSyncRoomId] = useState<string>(realtimeSync.getRoomId());
 
   // Active Selected Object
   const [activeObjectProps, setActiveObjectProps] = useState<ActiveObjectProperties | null>(null);
@@ -93,6 +104,35 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Connect Real-time Sync on Mount
+  useEffect(() => {
+    realtimeSync.connect();
+
+    const unsubStatus = realtimeSync.onStatusChange((status) => {
+      setSyncStatus(status);
+    });
+
+    const unsubPeers = realtimeSync.onPeersChange((peers) => {
+      setSyncPeers(peers);
+    });
+
+    return () => {
+      unsubStatus();
+      unsubPeers();
+    };
+  }, []);
+
+  const handleRoomChange = (newRoomId: string) => {
+    setSyncRoomId(newRoomId);
+    realtimeSync.disconnect();
+    realtimeSync.connect(newRoomId, pdfData?.fileName || 'Document.pdf');
+  };
+
+  const handlePlatformChange = (newPlatform: ClientPlatform) => {
+    setMyPlatform(newPlatform);
+    realtimeSync.setSimulatedPlatform(newPlatform);
+  };
 
   // Handle PDF File Parsing
   const processPdfBuffer = async (
@@ -965,6 +1005,9 @@ export default function App() {
             onRunOcr={handleRunOcrOnActivePage}
             isOcrRunning={isOcrRunning}
             ocrCount={totalOcrCount}
+            onOpenSyncModal={() => setIsSyncModalOpen(true)}
+            syncPeerCount={syncPeers.length}
+            syncStatus={syncStatus}
           />
 
           <div id="editor-workspace" className="flex-1 flex overflow-hidden relative">
@@ -1144,8 +1187,34 @@ export default function App() {
             zoom={zoom}
             activeObject={activeObjectProps}
           />
+
+          {/* Floating Mobile Touch Controls for Responsive Viewports (iOS / Android / Touch Screens) */}
+          <MobileTouchControls
+            activeTool={activeTool}
+            onToolChange={handleToolSelect}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            onFitPage={handleZoomFitPage}
+            syncStatus={syncStatus}
+            peers={syncPeers}
+            myPlatform={myPlatform}
+            onOpenSyncModal={() => setIsSyncModalOpen(true)}
+          />
         </>
       )}
+
+      {/* Cross-Platform Real-Time Cloud Sync Modal */}
+      <RealtimeSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        roomId={syncRoomId}
+        status={syncStatus}
+        peers={syncPeers}
+        myPlatform={myPlatform}
+        myClientId={realtimeSync.getClientId()}
+        onRoomChange={handleRoomChange}
+        onPlatformChange={handlePlatformChange}
+      />
 
       {/* Signature Drawing / Typing Modal */}
       <SignatureModal

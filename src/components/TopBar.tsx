@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Sparkles,
   ScanText,
+  Radio,
 } from 'lucide-react';
 import { ToolMode } from '../types';
 
@@ -50,6 +51,9 @@ interface TopBarProps {
   onRunOcr?: () => void;
   isOcrRunning?: boolean;
   ocrCount?: number;
+  onOpenSyncModal?: () => void;
+  syncPeerCount?: number;
+  syncStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -79,6 +83,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRunOcr,
   isOcrRunning = false,
   ocrCount = 0,
+  onOpenSyncModal,
+  syncPeerCount = 1,
+  syncStatus = 'connected',
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
@@ -304,6 +311,33 @@ export const TopBar: React.FC<TopBarProps> = ({
             <ScanText className={`w-3.5 h-3.5 text-emerald-400 ${isOcrRunning ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">
               {isOcrRunning ? 'OCR Running...' : ocrCount > 0 ? `OCR (${ocrCount})` : 'Run OCR'}
+            </span>
+          </button>
+        )}
+
+        {/* Real-time Cross-Platform Cloud Sync Button */}
+        {onOpenSyncModal && (
+          <button
+            id="btn-realtime-sync"
+            type="button"
+            onClick={onOpenSyncModal}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition cursor-pointer shrink-0 ${
+              syncStatus === 'connected'
+                ? 'bg-purple-950/40 hover:bg-purple-900/40 text-purple-300 border-purple-500/30'
+                : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
+            }`}
+            title="Cross-Platform Real-Time Sync & Collaboration (iOS / Android / Web)"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                syncStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+              }`}
+            />
+            <Radio className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">
+              {syncPeerCount !== undefined && syncPeerCount > 1
+                ? `Sync (${syncPeerCount})`
+                : 'Live Sync'}
             </span>
           </button>
         )}

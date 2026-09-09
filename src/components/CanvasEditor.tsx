@@ -19,6 +19,7 @@ import {
 } from '../utils/pdfCanvasManager';
 import { applyFontMatchesToCanvas } from '../utils/fontManager';
 import { calculateFitToPageZoom } from '../utils/zoomHelpers';
+import { realtimeSync } from '../utils/realtimeSync';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
 interface CanvasEditorProps {
@@ -64,6 +65,12 @@ interface SinglePageProps {
   onDeletePage?: (pageNumber: number) => void;
   onDuplicatePage?: (pageNumber: number) => void;
   onDeselectOthers: (currentPageNumber: number) => void;
+  onTwoFingerStart?: (e: TouchEvent) => void;
+  onTwoFingerMove?: (e: TouchEvent) => void;
+  onTwoFingerEnd?: () => void;
+  onOneFingerPanStart?: (e: TouchEvent) => void;
+  onOneFingerPanMove?: (e: TouchEvent) => void;
+  onOneFingerPanEnd?: () => void;
 }
 
 const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
@@ -84,6 +91,12 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
   onDeletePage,
   onDuplicatePage,
   onDeselectOthers,
+  onTwoFingerStart,
+  onTwoFingerMove,
+  onTwoFingerEnd,
+  onOneFingerPanStart,
+  onOneFingerPanMove,
+  onOneFingerPanEnd,
 }) => {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -233,8 +246,12 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
 
     const handleChange = () => {
       if (isCancelled || !isCanvasAlive(canvas)) return;
+      const json = JSON.stringify(canvas.toJSON());
       if (!isHistoryActionRef.current) {
-        onPushHistory(pageInfo.pageNumber, JSON.stringify(canvas.toJSON()));
+        onPushHistory(pageInfo.pageNumber, json);
+      }
+      if (!realtimeSync.isRemoteUpdate) {
+        realtimeSync.broadcastPageSnapshot(pageInfo.pageNumber, json);
       }
     };
 
@@ -249,6 +266,10 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
     canvas.on('object:modified', (e) => {
       if (e.target) {
         (e.target as any).userTransformed = true;
+        if (!realtimeSync.isRemoteUpdate && !(e.target as any).isPdfBackground) {
+          const objId = (e.target as any).id || ((e.target as any).id = `obj_${Math.random().toString(36).substring(2, 9)}`);
+          realtimeSync.broadcastObjectUpsert(pageInfo.pageNumber, objId, (e.target as any).toObject?.() || {});
+        }
       }
       handleChange();
     });
@@ -259,13 +280,82 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       if (!(e.target as any)?.isPdfBackground) handleChange();
     });
 
+    // Native Touch Event Routing on Fabric's upperCanvasEl for iOS / Android
+    const upperEl = canvas.upperCanvasEl;
+    let handleUpperTouchStart: ((e: TouchEvent) => void) | null = null;
+    let handleUpperTouchMove: ((e: TouchEvent) => void) | null = null;
+    let handleUpperTouchEnd: ((e: TouchEvent) => void) | null = null;
+
+    if (upperEl) {
+      handleUpperTouchStart = (e: TouchEvent) => {
+        if (e.touches.length === 2) {
+          onTwoFingerStart?.(e);
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          onOneFingerPanStart?.(e);
+        }
+      };
+
+      handleUpperTouchMove = (e: TouchEvent) => {
+        if (e.touches.length === 2) {
+          if (e.cancelable) e.preventDefault();
+          onTwoFingerMove?.(e);
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          if (e.cancelable) e.preventDefault();
+          onOneFingerPanMove?.(e);
+        }
+      };
+
+      handleUpperTouchEnd = (e: TouchEvent) => {
+        if (e.touches.length < 2) {
+          onTwoFingerEnd?.();
+        }
+        if (e.touches.length === 0) {
+          onOneFingerPanEnd?.();
+        }
+      };
+
+      upperEl.addEventListener('touchstart', handleUpperTouchStart, { passive: false });
+      upperEl.addEventListener('touchmove', handleUpperTouchMove, { passive: false });
+      upperEl.addEventListener('touchend', handleUpperTouchEnd);
+      upperEl.addEventListener('touchcancel', handleUpperTouchEnd);
+    }
+
     return () => {
       isCancelled = true;
       isInitializedRef.current = false;
+      if (upperEl && handleUpperTouchStart) {
+        upperEl.removeEventListener('touchstart', handleUpperTouchStart);
+        upperEl.removeEventListener('touchmove', handleUpperTouchMove!);
+        upperEl.removeEventListener('touchend', handleUpperTouchEnd!);
+        upperEl.removeEventListener('touchcancel', handleUpperTouchEnd!);
+      }
       if (onCanvasDisposed) onCanvasDisposed(pageInfo.pageNumber);
       const c = fabricCanvasRef.current;
       fabricCanvasRef.current = null;
       safeDisposeCanvas(c);
+    };
+  }, [pageInfo.pageNumber]);
+
+  // Remote Real-time Sync Snapshot Listener
+  useEffect(() => {
+    const unsubSnapshot = realtimeSync.onPageSnapshot((evt) => {
+      if (evt.pageNumber === pageInfo.pageNumber) {
+        const canvas = fabricCanvasRef.current;
+        if (canvas && isCanvasAlive(canvas)) {
+          isHistoryActionRef.current = true;
+          canvas.loadFromJSON(evt.json).then(() => {
+            isHistoryActionRef.current = false;
+            canvas.requestRenderAll();
+          }).catch((err) => {
+            isHistoryActionRef.current = false;
+            console.warn('[Realtime Sync] Failed to render remote snapshot:', err);
+          });
+        }
+      }
+    });
+
+    return () => {
+      unsubSnapshot();
     };
   }, [pageInfo.pageNumber]);
 
@@ -746,11 +836,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   };
 
   // Multi-Touch Handlers (Pinch-to-zoom & Two-Finger Pan)
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
+  const handleTwoFingerStart = useCallback((touches: TouchList | React.TouchList) => {
+    if (touches.length === 2) {
       isTwoFingerGestureRef.current = true;
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
+      const t1 = touches[0];
+      const t2 = touches[1];
       touchStartDistRef.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       touchStartZoomRef.current = zoom;
       touchStartMidRef.current = {
@@ -758,17 +848,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: (t1.clientY + t2.clientY) / 2,
       };
     }
-  };
+  }, [zoom]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
-      e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
+  const handleTwoFingerMove = useCallback((touches: TouchList | React.TouchList) => {
+    if (touches.length === 2 && touchStartDistRef.current !== null) {
+      const t1 = touches[0];
+      const t2 = touches[1];
 
       const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       const scaleDelta = currentDist / touchStartDistRef.current;
-      const newZoom = Math.min(2.5, Math.max(0.4, Number((touchStartZoomRef.current * scaleDelta).toFixed(2))));
+      const newZoom = Math.min(2.8, Math.max(0.35, Number((touchStartZoomRef.current * scaleDelta).toFixed(2))));
       onZoomChange(newZoom);
 
       const currentMid = {
@@ -783,13 +872,35 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         touchStartMidRef.current = currentMid;
       }
     }
-  };
+  }, [onZoomChange]);
 
-  const handleTouchEnd = () => {
+  const handleTwoFingerEnd = useCallback(() => {
     touchStartDistRef.current = null;
     touchStartMidRef.current = null;
     isTwoFingerGestureRef.current = false;
-  };
+  }, []);
+
+  // One-finger touch panning on mobile viewports
+  const handleOneFingerPanStart = useCallback((touches: TouchList | React.TouchList) => {
+    if (touches.length === 1) {
+      isPanningRef.current = true;
+      lastMousePosRef.current = { x: touches[0].clientX, y: touches[0].clientY };
+    }
+  }, []);
+
+  const handleOneFingerPanMove = useCallback((touches: TouchList | React.TouchList) => {
+    if (isPanningRef.current && touches.length === 1 && containerRef.current) {
+      const dx = touches[0].clientX - lastMousePosRef.current.x;
+      const dy = touches[0].clientY - lastMousePosRef.current.y;
+      containerRef.current.scrollLeft -= dx;
+      containerRef.current.scrollTop -= dy;
+      lastMousePosRef.current = { x: touches[0].clientX, y: touches[0].clientY };
+    }
+  }, []);
+
+  const handleOneFingerPanEnd = useCallback(() => {
+    isPanningRef.current = false;
+  }, []);
 
   // Mouse Pan Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -820,11 +931,34 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       className="relative flex-1 w-full h-full overflow-auto bg-[#0F0F11] flex flex-col items-center select-none"
       style={{
         cursor: activeTool === 'pan' ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+        touchAction: activeTool === 'pan' ? 'none' : 'pan-x pan-y',
+        WebkitOverflowScrolling: 'touch',
       }}
       onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={(e) => {
+        if (e.touches.length === 2) {
+          handleTwoFingerStart(e.touches);
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          handleOneFingerPanStart(e.touches);
+        }
+      }}
+      onTouchMove={(e) => {
+        if (e.touches.length === 2) {
+          if (e.cancelable) e.preventDefault();
+          handleTwoFingerMove(e.touches);
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          if (e.cancelable) e.preventDefault();
+          handleOneFingerPanMove(e.touches);
+        }
+      }}
+      onTouchEnd={(e) => {
+        if (e.touches.length < 2) {
+          handleTwoFingerEnd();
+        }
+        if (e.touches.length === 0) {
+          handleOneFingerPanEnd();
+        }
+      }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -854,6 +988,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             onDeletePage={onDeletePage}
             onDuplicatePage={onDuplicatePage}
             onDeselectOthers={handleDeselectOthers}
+            onTwoFingerStart={(e) => handleTwoFingerStart(e.touches)}
+            onTwoFingerMove={(e) => handleTwoFingerMove(e.touches)}
+            onTwoFingerEnd={handleTwoFingerEnd}
+            onOneFingerPanStart={(e) => handleOneFingerPanStart(e.touches)}
+            onOneFingerPanMove={(e) => handleOneFingerPanMove(e.touches)}
+            onOneFingerPanEnd={handleOneFingerPanEnd}
           />
         ))}
       </div>
