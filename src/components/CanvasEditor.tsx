@@ -107,6 +107,11 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
   const isHistoryActionRef = useRef<boolean>(false);
   const isInitializedRef = useRef<boolean>(false);
   const currentScaleRef = useRef<number>(1.0);
+  const activeToolRef = useRef(activeTool);
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
 
   // Unscaled native PDF dimensions
   const unscaledW = pageInfo.unscaledWidth || pageInfo.pdfWidth || pageInfo.width || 612;
