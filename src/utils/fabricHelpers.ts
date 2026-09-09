@@ -343,7 +343,7 @@ export function createEditorCanvas(
     width,
     height,
     preserveObjectStacking: true,
-    selection: false, // User requested: Disable Fabric.js default drag-selection boxes (marquee selection)
+    selection: true,
     stopContextMenu: true,
     fireRightClick: true,
   });

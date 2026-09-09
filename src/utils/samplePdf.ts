@@ -305,41 +305,6 @@ export async function createSamplePDF(): Promise<ArrayBuffer> {
     color: rgb(0.4, 0.45, 0.5),
   });
 
-  // Official Stamp (Vector stamp badge with double border)
-  const stampX = width - 210;
-  const stampY = sigY + 30;
-  page1.drawRectangle({
-    x: stampX,
-    y: stampY,
-    width: 130,
-    height: 44,
-    borderColor: rgb(0.85, 0.18, 0.18),
-    borderWidth: 2,
-    color: rgb(0.99, 0.94, 0.94),
-  });
-  page1.drawRectangle({
-    x: stampX + 3,
-    y: stampY + 3,
-    width: 124,
-    height: 38,
-    borderColor: rgb(0.85, 0.18, 0.18),
-    borderWidth: 0.8,
-  });
-  page1.drawText('★ APPROVED ★', {
-    x: stampX + 16,
-    y: stampY + 24,
-    size: 12,
-    font: helveticaBold,
-    color: rgb(0.85, 0.18, 0.18),
-  });
-  page1.drawText('VERIFIED FINANCIAL AUDIT', {
-    x: stampX + 13,
-    y: stampY + 11,
-    size: 7,
-    font: helveticaBold,
-    color: rgb(0.85, 0.18, 0.18),
-  });
-
   // Client signature line
   page1.drawText('Client Acceptance', {
     x: width - 240,

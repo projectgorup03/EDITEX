@@ -15,7 +15,6 @@ import {
   renderHighDpiPageBackground,
   syncFabricCanvasToPage,
   populateNormalizedTextItems,
-  populateDiscreteNonTextAssets,
   isCanvasAlive,
   safeDisposeCanvas,
 } from '../utils/pdfCanvasManager';
@@ -107,11 +106,6 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
   const isHistoryActionRef = useRef<boolean>(false);
   const isInitializedRef = useRef<boolean>(false);
   const currentScaleRef = useRef<number>(1.0);
-  const activeToolRef = useRef(activeTool);
-
-  useEffect(() => {
-    activeToolRef.current = activeTool;
-  }, [activeTool]);
 
   // Unscaled native PDF dimensions
   const unscaledW = pageInfo.unscaledWidth || pageInfo.pdfWidth || pageInfo.width || 612;
@@ -223,13 +217,6 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
           await syncFabricCanvasToPage(canvas, viewportWidth, viewportHeight, bgUrl);
 
           if (isCancelled || !isCanvasAlive(canvas)) return;
-          // Force all non-text assets (vector graphics, stamps, shapes, and figures)
-          // to render as discrete, editable image objects (Fabric.Image)
-          if (pageInfo.nonTextAssets && pageInfo.nonTextAssets.length > 0) {
-            await populateDiscreteNonTextAssets(canvas, pageInfo.nonTextAssets, scale);
-          }
-
-          if (isCancelled || !isCanvasAlive(canvas)) return;
           // Rule 3: Interactive Element Coordinate Normalization
           if (pageInfo.textItems && pageInfo.textItems.length > 0) {
             populateNormalizedTextItems(canvas, pageInfo.textItems, scale);
@@ -328,22 +315,11 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
     let handleUpperMouseDown: ((e: MouseEvent) => void) | null = null;
 
     if (upperEl) {
-      let isTouchPanning = false;
-
       handleUpperTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 2) {
           onTwoFingerStart?.(e);
-        } else if (e.touches.length === 1) {
-          if (activeTool === 'pan') {
-            isTouchPanning = true;
-            onOneFingerPanStart?.(e);
-          } else if (activeTool !== 'draw') {
-            const target = canvas.findTarget(e as any);
-            if (!target || (target as any).isPdfBackground) {
-              isTouchPanning = true;
-              onOneFingerPanStart?.(e);
-            }
-          }
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          onOneFingerPanStart?.(e);
         }
       };
 
@@ -351,11 +327,9 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
         if (e.touches.length === 2) {
           if (e.cancelable) e.preventDefault();
           onTwoFingerMove?.(e);
-        } else if (e.touches.length === 1) {
-          if (activeTool === 'pan' || isTouchPanning) {
-            if (e.cancelable) e.preventDefault();
-            onOneFingerPanMove?.(e);
-          }
+        } else if (e.touches.length === 1 && activeTool === 'pan') {
+          if (e.cancelable) e.preventDefault();
+          onOneFingerPanMove?.(e);
         }
       };
 
@@ -364,7 +338,6 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
           onTwoFingerEnd?.();
         }
         if (e.touches.length === 0) {
-          isTouchPanning = false;
           onOneFingerPanEnd?.();
         }
       };
@@ -378,12 +351,6 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
         if (activeTool === 'pan' || e.button === 1) {
           e.preventDefault();
           onPanStartMouse?.(e.clientX, e.clientY);
-        } else if (e.button === 0 && activeTool !== 'draw') {
-          // If clicking on background (not on an active interactive target), enable viewport panning
-          const target = canvas.findTarget(e);
-          if (!target || (target as any).isPdfBackground) {
-            onPanStartMouse?.(e.clientX, e.clientY);
-          }
         }
       };
       upperEl.addEventListener('mousedown', handleUpperMouseDown);
@@ -490,17 +457,6 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
               tb.fontSize = (tb.fontSize || 12) * ratio;
               tb.width = (tb.width || 50) * ratio;
             }
-          } else if ((obj as any).isNonTextAsset) {
-            // Scaled discrete non-text asset (Fabric.Image)
-            const asset = obj as fabric.FabricImage;
-            const unscaledX = (asset as any).unscaledX ?? 0;
-            const unscaledY = (asset as any).unscaledY ?? 0;
-            const unscaledW = (asset as any).unscaledWidth ?? asset.width ?? 100;
-            const unscaledH = (asset as any).unscaledHeight ?? asset.height ?? 100;
-            asset.left = unscaledX * scale;
-            asset.top = unscaledY * scale;
-            asset.scaleX = (unscaledW * scale) / (asset.width || 1);
-            asset.scaleY = (unscaledH * scale) / (asset.height || 1);
           } else {
             obj.left = (obj.left || 0) * ratio;
             obj.top = (obj.top || 0) * ratio;
@@ -556,9 +512,7 @@ const SinglePageCanvas: React.FC<SinglePageProps> = React.memo(({
       onObjectSelected(null);
     } else {
       canvas.isDrawingMode = false;
-      // User request: Disable Fabric.js default drag-selection boxes (selection: false)
-      // while keeping background viewport panning enabled
-      canvas.selection = false;
+      canvas.selection = activeTool === 'select';
       canvas.skipTargetFind = false;
       canvas.defaultCursor = 'default';
       canvas.hoverCursor = 'move';

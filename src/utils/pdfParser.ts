@@ -1,10 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { ExtractedTextItem, ExtractedNonTextAsset, PDFDocumentData, PDFPageInfo } from '../types';
+import { ExtractedTextItem, PDFDocumentData, PDFPageInfo } from '../types';
 import { runOcrOnPage } from './ocrPipeline';
 import { inpaintRegionOnCanvas } from './inpaintingEngine';
 import { configureLegacyWebKitPdfWorker, getLegacyWebKitDocumentOptions } from './pdfInit';
 import { toStrictUint8Array } from './fileReaderHelper';
-import { extractDiscreteNonTextAssets } from './nonTextAssetExtractor';
 
 // Execute legacy WebKit worker configuration override
 configureLegacyWebKitPdfWorker();
@@ -293,28 +292,6 @@ export async function parsePDFDocument(
       bgDataUrl = canvas.toDataURL('image/png');
     }
 
-    // Extract all non-text assets (vector graphics, stamps, shapes, and figures)
-    // to render as discrete, editable image objects (Fabric.Image)
-    let nonTextAssets: ExtractedNonTextAsset[] = [];
-    try {
-      const extracted = await extractDiscreteNonTextAssets(
-        page,
-        standardViewport.width,
-        standardViewport.height,
-        pageNum - 1,
-        renderScale
-      );
-      if (extracted && extracted.assets && extracted.assets.length > 0) {
-        nonTextAssets = extracted.assets;
-        // Clean white page background so moving/deleting assets leaves no ghost artifacts
-        if (extracted.cleanBgDataUrl) {
-          bgDataUrl = extracted.cleanBgDataUrl;
-        }
-      }
-    } catch (assetErr) {
-      console.warn(`Could not extract non-text assets for page ${pageNum}:`, assetErr);
-    }
-
     // Generate small thumbnail for sidebar
     const thumbScale = 0.25;
     const thumbViewport = page.getViewport({ scale: thumbScale });
@@ -410,7 +387,6 @@ export async function parsePDFDocument(
       bgDataUrl,
       thumbnailUrl: thumbnailUrl || bgDataUrl,
       textItems,
-      nonTextAssets,
       pageProxy: page,
       hasOcrProcessed,
       isScannedOrFlattened,
